@@ -9,11 +9,16 @@
 
 const chub = require("./chub");
 const local = require("./local");
+const risurealm = require("./risurealm");
 
-const PROVIDERS = { [chub.id]: chub, [local.id]: local };
+const PROVIDERS = { [chub.id]: chub, [local.id]: local, [risurealm.id]: risurealm };
 
+// Only providers that support a real search() show up as a browsable source
+// (the dropdown). RisuRealm is resolve-only (see providers/risurealm.js).
 function list() {
-  return Object.values(PROVIDERS).map((p) => ({ id: p.id, label: p.label, supportsNsfwSort: !!p.supportsNsfwSort }));
+  return Object.values(PROVIDERS)
+    .filter((p) => p.searchable !== false)
+    .map((p) => ({ id: p.id, label: p.label, supportsNsfwSort: !!p.supportsNsfwSort }));
 }
 
 function get(sourceId) {

@@ -152,6 +152,37 @@ el("loadMore").addEventListener("click", () => {
   runSearch(false);
 });
 
+// ---- Import by link ----
+
+async function importFromLink() {
+  const url = el("importUrl").value.trim();
+  if (!url) return;
+
+  try {
+    const res = await fetch("/api/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Import failed");
+
+    const card = data.result;
+    state.results = state.results.filter((c) => cardKey(c) !== cardKey(card));
+    state.results.unshift(card);
+    renderResults();
+    openModal(card);
+    el("importUrl").value = "";
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+el("importBtn").addEventListener("click", importFromLink);
+el("importUrl").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") importFromLink();
+});
+
 function cardKey(card) {
   return `${card.source}::${card.id}`;
 }
@@ -293,7 +324,9 @@ function refreshCardChrome(card) {
     cardNode.querySelector(".destPick").innerHTML = renderDestPicker(card);
   }
   if (el("modalBackdrop").dataset.key === key) {
-    renderModalBody(card);
+    const modalContent = el("modalContent");
+    modalContent.querySelector(".locations").innerHTML = renderLocationsBadge(card);
+    modalContent.querySelector(".destPick").innerHTML = renderDestPicker(card);
   }
 }
 

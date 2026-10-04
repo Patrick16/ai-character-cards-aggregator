@@ -94,6 +94,13 @@ input, select {
 .searchBar #tags { flex: 1; min-width: 200px; }
 .nsfwToggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 
+.importBar {
+  display: flex;
+  gap: 10px;
+  padding: 0 24px 16px;
+}
+.importBar #importUrl { flex: 1; }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

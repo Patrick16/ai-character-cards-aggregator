@@ -114,6 +114,28 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
+// ---- Import by link (sources with no sanctioned search API, e.g. RisuRealm) ----
+
+app.post("/api/resolve", async (req, res) => {
+  const { url } = req.body || {};
+  logger.debug("POST /api/resolve", { url });
+
+  if (!url) {
+    return res.status(400).json({ error: "url is required" });
+  }
+
+  try {
+    const risurealm = providers.get("risurealm");
+    const result = await risurealm.resolve(url);
+    const [withLocations] = attachLocations(result.source, [result]);
+    logger.info("Resolve completed", { source: result.source, id: result.id });
+    res.json({ result: withLocations });
+  } catch (err) {
+    logger.error("Resolve failed", err);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // ---- Local library thumbnails ----
 
 app.get("/api/local/thumbnail", (req, res) => {

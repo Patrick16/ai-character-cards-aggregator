@@ -6,6 +6,7 @@ A small local web app for searching character cards on [Chub.ai](https://chub.ai
 
 - Search Chub.ai's character card catalog (by keyword, tags, sort order, NSFW toggle)
 - Browse **My Library**: a second source that indexes cards already sitting in your destination folders, read straight from each PNG's embedded data — searchable and taggable just like Chub
+- **Import by link**: paste a [RisuRealm](https://realm.risuai.net) character URL to pull it in via their official download API (RisuRealm doesn't offer a public search API, so this is link-only; cards whose creator disabled API downloads will say so)
 - See at a glance which folder(s) a card is already downloaded to, right on its card
 - Click a card to open a details modal with the full description, personality, scenario, first message, tags and stats
 - Manage multiple destination folders (e.g. different SillyTavern installs)
@@ -55,6 +56,7 @@ DEBUG=1 npm start
 - `providers/` — Search sources, each exposing `search()` / `getBuffer()`
   - `providers/chub.js` — Chub.ai API client
   - `providers/local.js` — Scans destination folders for existing cards
+  - `providers/risurealm.js` — RisuRealm "import by link" client (resolve + download only, no search)
 - `lib/pngCard.js` — Reads embedded character data out of a card PNG
 - `settings.js` — Persists destination folders to `data/settings.json`
 - `downloads.js` — Tracks what's been downloaded where, in `data/downloads.json`
