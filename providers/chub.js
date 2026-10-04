@@ -5,8 +5,9 @@
 // cards are downloaded straight from the CDN URL the search response
 // provides (max_res_url), since character download now requires auth.
 
-const logger = require("./logger");
+const logger = require("../logger");
 
+const SOURCE = "chub";
 const SEARCH_URL = "https://api.chub.ai/search";
 const avatarUrl = (fullPath) => `https://avatars.charhub.io/avatars/${fullPath}/avatar.webp`;
 const fallbackDownloadUrl = (fullPath) => `https://avatars.charhub.io/avatars/${fullPath}/chara_card_v2.png`;
@@ -21,8 +22,8 @@ const BROWSER_HEADERS = {
   "Accept-Language": "en-US,en;q=0.9",
 };
 
-async function search({ query = "", page = 0, first = 24, sort = "download_count", asc = false, nsfw = false }) {
-  logger.debug("Chub.search called", { query, page, first, sort, asc, nsfw });
+async function search({ query = "", tags = [], page = 0, first = 24, sort = "download_count", asc = false, nsfw = false }) {
+  logger.debug("Chub.search called", { query, tags, page, first, sort, asc, nsfw });
 
   const params = new URLSearchParams({
     first: String(first),
@@ -36,9 +37,10 @@ async function search({ query = "", page = 0, first = 24, sort = "download_count
     require_custom_prompt: "false",
   });
   if (query) params.set("search", query);
+  if (Array.isArray(tags) && tags.length > 0) params.set("topics", tags.join(","));
 
   try {
-    logger.info("Requesting Chub API", { url: SEARCH_URL, query, page });
+    logger.info("Requesting Chub API", { url: SEARCH_URL, query, tags, page });
     const res = await fetch(`${SEARCH_URL}?${params.toString()}`, { headers: BROWSER_HEADERS });
 
     if (!res.ok) {
@@ -51,13 +53,25 @@ async function search({ query = "", page = 0, first = 24, sort = "download_count
     logger.info("Chub search succeeded", { query, page, nodeCount: nodes.length });
 
     return nodes.map((node) => ({
-      fullPath: node.fullPath,
+      source: SOURCE,
+      id: node.fullPath,
       name: node.name,
       author: node.fullPath ? node.fullPath.split("/")[0] : "",
       tagline: node.tagline || "",
       tags: Array.isArray(node.topics) ? node.topics : [],
       thumbnail: avatarUrl(node.fullPath),
       downloadUrl: node.max_res_url || fallbackDownloadUrl(node.fullPath),
+      stats: {
+        rating: node.rating || 0,
+        ratingCount: node.ratingCount || 0,
+        favorites: node.n_favorites || 0,
+        chats: node.nChats || 0,
+        createdAt: node.createdAt || null,
+        lastActivityAt: node.lastActivityAt || null,
+      },
+      details: {
+        description: node.description || "",
+      },
     }));
   } catch (err) {
     logger.error("Chub search error", err);
@@ -65,8 +79,8 @@ async function search({ query = "", page = 0, first = 24, sort = "download_count
   }
 }
 
-async function downloadCard(downloadUrl) {
-  logger.debug("Chub.downloadCard called", { downloadUrl });
+async function getBuffer({ downloadUrl }) {
+  logger.debug("Chub.getBuffer called", { downloadUrl });
 
   try {
     logger.info("Requesting Chub download", { downloadUrl });
@@ -87,4 +101,4 @@ async function downloadCard(downloadUrl) {
   }
 }
 
-module.exports = { search, downloadCard };
+module.exports = { id: SOURCE, label: "Chub.ai", search, getBuffer, supportsNsfwSort: true };

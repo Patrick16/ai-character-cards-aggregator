@@ -4,7 +4,8 @@ const path = require("path");
 
 const logger = require("./logger");
 const settings = require("./settings");
-const chub = require("./chub");
+const downloads = require("./downloads");
+const providers = require("./providers");
 
 const app = express();
 const PORT = process.env.PORT || 4321;
@@ -58,24 +59,81 @@ app.delete("/api/destinations/:id", (req, res) => {
   }
 });
 
+// ---- Sources ----
+
+app.get("/api/sources", (req, res) => {
+  res.json(providers.list());
+});
+
 // ---- Search ----
 
+function attachLocations(source, results) {
+  const destinations = settings.listDestinations();
+  const destById = new Map(destinations.map((d) => [d.id, d]));
+
+  if (source === "local") {
+    // Local provider already reports exactly where each card lives on disk.
+    for (const r of results) {
+      r.locations = (r.locations || [])
+        .filter((loc) => destById.has(loc.destinationId))
+        .map((loc) => ({ destinationId: loc.destinationId, label: destById.get(loc.destinationId).label, file: loc.file }));
+    }
+    return results;
+  }
+
+  const ids = results.map((r) => r.id);
+  const found = downloads.lookup(source, ids);
+  for (const r of results) {
+    r.locations = (found[r.id] || [])
+      .filter((loc) => destById.has(loc.destinationId))
+      .map((loc) => ({ destinationId: loc.destinationId, label: destById.get(loc.destinationId).label, file: loc.file }));
+  }
+  return results;
+}
+
 app.get("/api/search", async (req, res) => {
-  const { q = "", page = "0", sort = "download_count", nsfw = "false" } = req.query;
-  logger.debug("GET /api/search", { q, page, sort, nsfw });
+  const { q = "", page = "0", sort = "download_count", nsfw = "false", source = "chub", tags = "" } = req.query;
+  const tagList = String(tags).split(",").map((t) => t.trim()).filter(Boolean);
+  logger.debug("GET /api/search", { q, page, sort, nsfw, source, tags: tagList });
 
   try {
-    const results = await chub.search({
+    const provider = providers.get(source);
+    const results = await provider.search({
       query: q,
+      tags: tagList,
       page: Number(page) || 0,
       sort,
       nsfw: nsfw === "true",
     });
-    logger.info("Search completed", { query: q, page, resultCount: results.length });
+    attachLocations(source, results);
+    logger.info("Search completed", { source, query: q, page, resultCount: results.length });
     res.json({ results });
   } catch (err) {
     logger.error("Search failed", err);
     res.status(502).json({ error: err.message });
+  }
+});
+
+// ---- Local library thumbnails ----
+
+app.get("/api/local/thumbnail", (req, res) => {
+  const { id } = req.query;
+  if (!id) return res.status(400).end();
+
+  try {
+    const local = providers.get("local");
+    const item = local.findById(String(id));
+    if (!item) return res.status(404).end();
+
+    const destinations = settings.listDestinations();
+    const resolvedFile = path.resolve(item.file);
+    const isInsideKnownDestination = destinations.some((d) => resolvedFile.startsWith(path.resolve(d.path) + path.sep));
+    if (!isInsideKnownDestination) return res.status(403).end();
+
+    res.sendFile(resolvedFile);
+  } catch (err) {
+    logger.error("Failed to serve local thumbnail", err);
+    res.status(500).end();
   }
 });
 
@@ -99,12 +157,12 @@ function uniqueTargetPath(folder, baseName) {
 }
 
 app.post("/api/download", async (req, res) => {
-  const { fullPath, downloadUrl, name, destinationIds } = req.body || {};
-  logger.debug("POST /api/download", { fullPath, downloadUrl, name, destinationIdCount: destinationIds?.length });
+  const { source = "chub", id, fullPath, downloadUrl, name, destinationIds } = req.body || {};
+  logger.debug("POST /api/download", { source, id, fullPath, downloadUrl, name, destinationIdCount: destinationIds?.length });
 
-  if (!downloadUrl || !Array.isArray(destinationIds) || destinationIds.length === 0) {
-    logger.warn("Invalid download request", { downloadUrl, destinationIdCount: destinationIds?.length });
-    return res.status(400).json({ error: "downloadUrl and destinationIds are required" });
+  if (!Array.isArray(destinationIds) || destinationIds.length === 0) {
+    logger.warn("Invalid download request", { destinationIdCount: destinationIds?.length });
+    return res.status(400).json({ error: "destinationIds are required" });
   }
 
   const destinations = settings.listDestinations().filter((d) => destinationIds.includes(d.id));
@@ -114,9 +172,10 @@ app.post("/api/download", async (req, res) => {
   }
 
   try {
-    logger.info("Starting download", { downloadUrl, destinationCount: destinations.length });
-    const buffer = await chub.downloadCard(downloadUrl);
-    logger.info("Card downloaded", { downloadUrl, sizeBytes: buffer.length });
+    const provider = providers.get(source);
+    logger.info("Starting download", { source, id, downloadUrl, destinationCount: destinations.length });
+    const buffer = await provider.getBuffer({ id, downloadUrl });
+    logger.info("Card downloaded", { source, id, downloadUrl, sizeBytes: buffer.length });
 
     const baseName = sanitizeFilename(name || (fullPath ? fullPath.split("/").pop() : null));
     const written = [];
@@ -126,11 +185,12 @@ app.post("/api/download", async (req, res) => {
       try {
         const target = uniqueTargetPath(dest.path, baseName);
         fs.writeFileSync(target, buffer);
+        downloads.record({ source, externalId: id, name: baseName, destinationId: dest.id, file: target });
         logger.info("File written", { destination: dest.label, file: target });
-        written.push({ destination: dest.label, file: target });
+        written.push({ destinationId: dest.id, destination: dest.label, file: target });
       } catch (writeErr) {
         logger.error("Failed to write file for destination", writeErr);
-        failed.push({ destination: dest.label, error: writeErr.message });
+        failed.push({ destinationId: dest.id, destination: dest.label, error: writeErr.message });
       }
     }
 

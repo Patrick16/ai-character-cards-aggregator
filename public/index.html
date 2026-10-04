@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,37 +9,46 @@
 <body>
 <header>
   <h1>Character Card Aggregator</h1>
-  <button id="toggleSettings" class="ghost">Папки назначения</button>
+  <button id="toggleSettings" class="ghost">Destination Folders</button>
 </header>
 
 <section id="settingsPanel" class="panel hidden">
-  <h2>Куда сохранять карточки</h2>
-  <p class="hint">Добавьте одну или несколько папок — например <code>public/characters</code> у TavernAI 2 или <code>data/default-user/characters</code> у SillyTavern. Путь должен уже существовать.</p>
+  <h2>Where to save cards</h2>
+  <p class="hint">Add one or more folders — for example TavernAI 2's <code>public/characters</code> or SillyTavern's <code>data/default-user/characters</code>. The path must already exist.</p>
   <div id="destinationList"></div>
   <form id="addDestinationForm">
-    <input type="text" id="destLabel" placeholder="Название (например: TavernAI)">
-    <input type="text" id="destPath" placeholder="Абсолютный путь к папке characters" required>
-    <button type="submit">Добавить</button>
+    <input type="text" id="destLabel" placeholder="Label (e.g. TavernAI)">
+    <input type="text" id="destPath" placeholder="Absolute path to the characters folder" required>
+    <button type="submit">Add</button>
   </form>
   <p id="settingsError" class="error"></p>
 </section>
 
 <section class="searchBar">
-  <input type="text" id="query" placeholder="Поиск персонажей на Chub.ai...">
+  <select id="source"></select>
+  <input type="text" id="query" placeholder="Search characters...">
+  <input type="text" id="tags" placeholder="Tags, comma-separated (e.g. fantasy, elf)">
   <select id="sort">
-    <option value="download_count">По популярности</option>
-    <option value="rating">По рейтингу</option>
-    <option value="created_at">Новые</option>
-    <option value="trending_downloads">В тренде</option>
-    <option value="name">По имени</option>
+    <option value="download_count">Most popular</option>
+    <option value="rating">Top rated</option>
+    <option value="created_at">Newest</option>
+    <option value="trending_downloads">Trending</option>
+    <option value="name">Name</option>
   </select>
   <label class="nsfwToggle"><input type="checkbox" id="nsfw"> NSFW</label>
-  <button id="searchBtn">Искать</button>
+  <button id="searchBtn">Search</button>
 </section>
 
 <section id="results" class="grid"></section>
 <div id="loadMoreWrap" class="hidden">
-  <button id="loadMore">Показать ещё</button>
+  <button id="loadMore">Load more</button>
+</div>
+
+<div id="modalBackdrop" class="modalBackdrop hidden">
+  <div class="modal">
+    <button id="modalClose" class="ghost small modalClose">&times;</button>
+    <div id="modalContent"></div>
+  </div>
 </div>
 
 <div id="toast" class="toast hidden"></div>
