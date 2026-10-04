@@ -99,12 +99,12 @@ function uniqueTargetPath(folder, baseName) {
 }
 
 app.post("/api/download", async (req, res) => {
-  const { fullPath, name, destinationIds } = req.body || {};
-  logger.debug("POST /api/download", { fullPath, name, destinationIdCount: destinationIds?.length });
+  const { fullPath, downloadUrl, name, destinationIds } = req.body || {};
+  logger.debug("POST /api/download", { fullPath, downloadUrl, name, destinationIdCount: destinationIds?.length });
 
-  if (!fullPath || !Array.isArray(destinationIds) || destinationIds.length === 0) {
-    logger.warn("Invalid download request", { fullPath, destinationIdCount: destinationIds?.length });
-    return res.status(400).json({ error: "fullPath and destinationIds are required" });
+  if (!downloadUrl || !Array.isArray(destinationIds) || destinationIds.length === 0) {
+    logger.warn("Invalid download request", { downloadUrl, destinationIdCount: destinationIds?.length });
+    return res.status(400).json({ error: "downloadUrl and destinationIds are required" });
   }
 
   const destinations = settings.listDestinations().filter((d) => destinationIds.includes(d.id));
@@ -114,11 +114,11 @@ app.post("/api/download", async (req, res) => {
   }
 
   try {
-    logger.info("Starting download", { fullPath, destinationCount: destinations.length });
-    const buffer = await chub.downloadCard(fullPath);
-    logger.info("Card downloaded", { fullPath, sizeBytes: buffer.length });
+    logger.info("Starting download", { downloadUrl, destinationCount: destinations.length });
+    const buffer = await chub.downloadCard(downloadUrl);
+    logger.info("Card downloaded", { downloadUrl, sizeBytes: buffer.length });
 
-    const baseName = sanitizeFilename(name || fullPath.split("/").pop());
+    const baseName = sanitizeFilename(name || (fullPath ? fullPath.split("/").pop() : null));
     const written = [];
     const failed = [];
 
@@ -135,11 +135,11 @@ app.post("/api/download", async (req, res) => {
     }
 
     if (failed.length > 0) {
-      logger.warn("Download partially completed", { fullPath, filesWritten: written.length, filesFailed: failed.length });
+      logger.warn("Download partially completed", { downloadUrl, filesWritten: written.length, filesFailed: failed.length });
       return res.status(207).json({ ok: written.length > 0, written, failed });
     }
 
-    logger.info("Download completed successfully", { fullPath, filesWritten: written.length });
+    logger.info("Download completed successfully", { downloadUrl, filesWritten: written.length });
     res.json({ ok: true, written });
   } catch (err) {
     logger.error("Download failed", err);

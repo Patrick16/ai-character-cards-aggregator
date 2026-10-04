@@ -172,7 +172,7 @@ async function downloadCard(card, node) {
     const res = await fetch("/api/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullPath: card.fullPath, name: card.name, destinationIds }),
+      body: JSON.stringify({ fullPath: card.fullPath, downloadUrl: card.downloadUrl, name: card.name, destinationIds }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Download failed");
