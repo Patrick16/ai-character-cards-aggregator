@@ -1,0 +1,13 @@
+{
+  "name": "card-aggregator",
+  "version": "1.0.0",
+  "description": "Local search/download tool for Chub.ai character cards, saving them straight into TavernAI / SillyTavern character folders.",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
